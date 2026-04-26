@@ -427,6 +427,32 @@
 }
 
 /* ============================================================
+   Combo banner — reuses .tspin-banner geometry/animation but
+   recolours the gradient/glow with the accent token so it reads
+   as a distinct event from a T-spin.
+   ============================================================ */
+.tspin-banner[data-kind='combo'] .tspin-banner__glow {
+  background: radial-gradient(
+    ellipse at center,
+    color-mix(in oklch, var(--accent) 35%, transparent) 0%,
+    transparent 70%
+  );
+}
+.tspin-banner[data-kind='combo'] .tspin-banner__char {
+  background: linear-gradient(
+    100deg,
+    var(--accent) 0%,
+    color-mix(in oklch, var(--accent) 30%, oklch(0.98 0 0)) 45%,
+    color-mix(in oklch, var(--accent) 65%, var(--piece-s)) 70%,
+    var(--accent) 100%
+  );
+  background-size: 220% 100%;
+  -webkit-background-clip: text;
+          background-clip: text;
+  filter: drop-shadow(0 0 6px color-mix(in oklch, var(--accent) 45%, transparent));
+}
+
+/* ============================================================
    Theme switcher chip.
    ============================================================ */
 @layer components {

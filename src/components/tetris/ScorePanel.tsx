@@ -6,6 +6,7 @@ interface ScorePanelProps {
   level: number;
   lines: number;
   highScore: number;
+  combo: number;
 }
 
 export const ScorePanel = memo(function ScorePanel({
@@ -13,6 +14,7 @@ export const ScorePanel = memo(function ScorePanel({
   level,
   lines,
   highScore,
+  combo,
 }: ScorePanelProps) {
   return (
     <Card className="w-36">
@@ -24,6 +26,7 @@ export const ScorePanel = memo(function ScorePanel({
         <Row label="High" value={highScore.toLocaleString()} />
         <Row label="Lines" value={lines.toLocaleString()} />
         <Row label="Level" value={level.toLocaleString()} />
+        {combo >= 1 && <Row label="Combo" value={`x${combo}`} />}
       </CardContent>
     </Card>
   );

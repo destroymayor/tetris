@@ -1,4 +1,5 @@
 import { Board } from '@/components/tetris/Board';
+import { ComboBanner } from '@/components/tetris/ComboBanner';
 import { ControlsHelp } from '@/components/tetris/ControlsHelp';
 import { GameOverlay } from '@/components/tetris/GameOverlay';
 import { HoldPanel } from '@/components/tetris/HoldPanel';
@@ -23,6 +24,8 @@ export function Game(props: IGameViewModel) {
     clearAmount,
     tspinPulse,
     tspinPayload,
+    combo,
+    comboPulse,
     onStart,
     onResume,
   } = props;
@@ -66,11 +69,13 @@ export function Game(props: IGameViewModel) {
               kind={tspinPayload.kind}
               lines={tspinPayload.lines}
             />
+            <ComboBanner pulse={comboPulse} combo={combo} />
             <ScorePanel
               score={score}
               level={level}
               lines={lines}
               highScore={highScore}
+              combo={combo}
             />
           </aside>
         </div>

@@ -50,4 +50,6 @@ export interface GameStateDto {
   lastTSpin: TSpinKind;
   lastTSpinLines: number;
   tspinCounter: number;
+  combo: number;
+  comboPulse: number;
 }

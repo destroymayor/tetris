@@ -62,6 +62,8 @@ function freshState(highScore: number): GameStateDto {
     lastTSpin: 'none',
     lastTSpinLines: 0,
     tspinCounter: 0,
+    combo: -1,
+    comboPulse: 0,
   };
 }
 

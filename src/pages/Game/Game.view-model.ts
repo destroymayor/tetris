@@ -15,6 +15,19 @@ interface TSpinPayload {
   lines: number;
 }
 
+// Auto-repeat tuning for left/right/soft-drop. We bypass the OS keyboard repeat
+// (which is ~500 ms initial / ~30 ms after) and run our own DAS/ARR like modern
+// guideline Tetris clients (Tetr.io, Jstris). Defaults below match Jstris-style
+// competitive tuning — snappy but still controllable for taps.
+const DAS_MS = 133; // delay before auto-shift kicks in
+const ARR_MS = 33; // interval between auto-shifts after DAS
+const SOFT_DROP_MS = 30; // soft-drop repeat interval (no DAS)
+
+interface RepeatTimers {
+  dasTimer: number | null;
+  arrTimer: number | null;
+}
+
 interface ViewModel {
   cells: RenderedCell[][];
   hold: PieceType | null;
@@ -29,6 +42,8 @@ interface ViewModel {
   clearAmount: number;
   tspinPulse: number;
   tspinPayload: TSpinPayload;
+  combo: number;
+  comboPulse: number;
   onStart: () => void;
   onResume: () => void;
 }
@@ -49,6 +64,8 @@ export function useGameViewModel(): ViewModel {
   const tspinCounter = useAppStore((s) => s.tspinCounter);
   const lastTSpin = useAppStore((s) => s.lastTSpin);
   const lastTSpinLines = useAppStore((s) => s.lastTSpinLines);
+  const combo = useAppStore((s) => s.combo);
+  const comboPulse = useAppStore((s) => s.comboPulse);
 
   const start = useAppStore((s) => s.start);
   const togglePause = useAppStore((s) => s.togglePause);
@@ -93,12 +110,47 @@ export function useGameViewModel(): ViewModel {
     prevTSpinRef.current = tspinCounter;
   }, [tspinCounter, lastTSpin, lastTSpinLines]);
 
-  // Keyboard input
+  // Keyboard input — we own auto-repeat (DAS/ARR) for left/right/soft-drop so
+  // input feels snappy regardless of the OS keyboard-repeat settings.
+  const repeatsRef = useRef<Map<string, RepeatTimers>>(new Map());
   useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if (e.repeat && (e.key === ' ' || e.key === 'Enter' || e.key === 'Shift' || e.key === 'p' || e.key === 'P')) {
-        return;
+    const repeats = repeatsRef.current;
+
+    const startRepeat = (
+      key: string,
+      action: () => void,
+      dasMs: number,
+      arrMs: number,
+    ) => {
+      if (repeats.has(key)) return; // already repeating (e.g. OS-level e.repeat)
+      action(); // fire once immediately on keydown
+      const timers: RepeatTimers = { dasTimer: null, arrTimer: null };
+      repeats.set(key, timers);
+      const beginArr = () => {
+        timers.arrTimer = window.setInterval(action, arrMs);
+      };
+      if (dasMs <= 0) {
+        beginArr();
+      } else {
+        timers.dasTimer = window.setTimeout(beginArr, dasMs);
       }
+    };
+
+    const stopRepeat = (key: string) => {
+      const timers = repeats.get(key);
+      if (!timers) return;
+      if (timers.dasTimer !== null) window.clearTimeout(timers.dasTimer);
+      if (timers.arrTimer !== null) window.clearInterval(timers.arrTimer);
+      repeats.delete(key);
+    };
+
+    const stopAllRepeats = () => {
+      for (const key of [...repeats.keys()]) stopRepeat(key);
+    };
+
+    const keydown = (e: KeyboardEvent) => {
+      // We manage our own repeat for movement keys; OS-driven repeats are noise.
+      if (e.repeat) return;
 
       const currentStatus = statusRef.current;
 
@@ -119,15 +171,17 @@ export function useGameViewModel(): ViewModel {
       switch (e.key) {
         case 'ArrowLeft':
           e.preventDefault();
-          moveLeft();
+          stopRepeat('ArrowRight'); // last horizontal press wins
+          startRepeat('ArrowLeft', moveLeft, DAS_MS, ARR_MS);
           break;
         case 'ArrowRight':
           e.preventDefault();
-          moveRight();
+          stopRepeat('ArrowLeft');
+          startRepeat('ArrowRight', moveRight, DAS_MS, ARR_MS);
           break;
         case 'ArrowDown':
           e.preventDefault();
-          softDrop();
+          startRepeat('ArrowDown', softDrop, 0, SOFT_DROP_MS);
           break;
         case ' ':
           e.preventDefault();
@@ -153,8 +207,21 @@ export function useGameViewModel(): ViewModel {
       }
     };
 
-    window.addEventListener('keydown', handler);
-    return () => window.removeEventListener('keydown', handler);
+    const keyup = (e: KeyboardEvent) => {
+      if (e.key === 'ArrowLeft' || e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+        stopRepeat(e.key);
+      }
+    };
+
+    window.addEventListener('keydown', keydown);
+    window.addEventListener('keyup', keyup);
+    window.addEventListener('blur', stopAllRepeats);
+    return () => {
+      window.removeEventListener('keydown', keydown);
+      window.removeEventListener('keyup', keyup);
+      window.removeEventListener('blur', stopAllRepeats);
+      stopAllRepeats();
+    };
   }, [
     start,
     togglePause,
@@ -174,6 +241,18 @@ export function useGameViewModel(): ViewModel {
     const id = window.setInterval(() => tick(), interval);
     return () => window.clearInterval(id);
   }, [status, level, tick]);
+
+  // Cancel any in-flight DAS/ARR when leaving `running` so a held key doesn't
+  // bleed across pause / game-over into the next piece.
+  useEffect(() => {
+    if (status === 'running') return;
+    const repeats = repeatsRef.current;
+    for (const timers of repeats.values()) {
+      if (timers.dasTimer !== null) window.clearTimeout(timers.dasTimer);
+      if (timers.arrTimer !== null) window.clearInterval(timers.arrTimer);
+    }
+    repeats.clear();
+  }, [status]);
 
   // Lock-delay scheduler: fires forceLock once when 500ms has elapsed since the
   // piece grounded. Each successful move/rotate while grounded mutates
@@ -241,6 +320,8 @@ export function useGameViewModel(): ViewModel {
     clearAmount,
     tspinPulse,
     tspinPayload,
+    combo,
+    comboPulse,
     onStart: start,
     onResume: togglePause,
   };

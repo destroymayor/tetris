@@ -48,6 +48,8 @@ export {
 } from './services/tetris/scoring';
 export type { ScoreInputs } from './services/tetris/scoring';
 
+export { computeComboBonus, nextCombo } from './services/tetris/combo';
+
 export {
   advanceTickUsecase,
   forceLockUsecase,

@@ -9,6 +9,7 @@ import {
 } from './piece';
 import { refillIfNeeded, takeNext } from './bag';
 import { computeLineScore, levelFromLines } from './scoring';
+import { computeComboBonus, nextCombo } from './combo';
 import { detectTSpin } from './tspin';
 
 const QUEUE_SIZE = 3;
@@ -82,7 +83,9 @@ export function lockAndAdvance(state: GameStateDto): GameStateDto {
   const newLines = state.lines + count;
   const newLevel = levelFromLines(newLines);
   const addScore = computeLineScore({ linesCleared: count, level: state.level, tspin });
-  const newScore = state.score + addScore;
+  const newCombo = nextCombo(state.combo, count);
+  const comboBonus = computeComboBonus(newCombo, state.level);
+  const newScore = state.score + addScore + comboBonus;
 
   const baseState: GameStateDto = {
     ...state,
@@ -95,6 +98,8 @@ export function lockAndAdvance(state: GameStateDto): GameStateDto {
     lastTSpin: tspin,
     lastTSpinLines: count,
     tspinCounter: tspin === 'none' ? state.tspinCounter : state.tspinCounter + 1,
+    combo: newCombo,
+    comboPulse: comboBonus > 0 ? state.comboPulse + 1 : state.comboPulse,
   };
 
   return spawnNext(baseState);
